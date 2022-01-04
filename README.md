@@ -19,17 +19,18 @@ Outputs (in pro_tss/):
 	*_inactive.tss.txt	inactive TSS's in makeheatmap format
 	*_non-dominant.tss.txt	active, yet non-dominant, TSS's in makeheatmap format
 	*_dominant.tss.txt	deduplicated, dominant TSS's in makeheatmap format
-	*_tss.saf.txt		TSS-proximal intervals (TSS to +150) for deduplicated dominant TSS's, in SAF format
-	*_whole_gene.saf.txt	whole gene intervals (TSS to transcript end) for deduplicated dominant TSS's, in SAF format
-	*_gene_body.saf.txt	gene body intervals (TSS+250 to TSS+2250) for deduplicated dominant TSS's, in SAF format
+	*_tss.saf	TSS-proximal intervals (TSS to +150) for deduplicated dominant TSS's, in SAF format
+	*_whole_gene.saf	whole gene intervals (TSS to transcript end) for deduplicated dominant TSS's, in SAF format
+	*_gene_body.saf	gene body intervals (TSS+250 to TSS+2250) for deduplicated dominant TSS's, in SAF format
 
 ---------------------------------	
 Sample bash script:
 
-#!/bin/bash
-#SBATCH -p short
-#SBATCH -t 0-5
-#SBATCH --mem=45G
-
-Rscript /path/to/proTSScall.R /path/to/hg19.filtered.tss.txt 4
+	#!/bin/bash
+	#SBATCH -p short
+	#SBATCH -t 0-3
+	#SBATCH --mem=25G
+	#SBATCH -c 8
+	
+	Rscript /path/to/proTSScall.R /path/to/tss_list 4
 

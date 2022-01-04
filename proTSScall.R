@@ -1,39 +1,43 @@
 # usage:
 #       Rscript proTSScall.R <tss_list> <read_threshold>
 
-cArgs <- commandArgs(trailingOnly = T)
-tssPath <- cArgs[1]
-readThreshold <- as.numeric(cArgs[2])
+cArgs <- commandArgs()
+fileArg <- which(startsWith(cArgs, "--file="))
+argsArg <- which(startsWith(cArgs, "--args"))
+runningScript <- normalizePath(sapply(strsplit(cArgs[fileArg], "--file="), "[", 2))
+
+tssPath <- cArgs[argsArg+1]
+readThreshold <- as.numeric(cArgs[argsArg+2])
 
 tssList <- read.table(tssPath, sep = "\t", row.names = 1, stringsAsFactors = F)
 
-userGroups <- strsplit(system("groups", intern = T), " ")[[1]]
-if("ntc" %in% userGroups){
+if(startsWith(runningScript, "/n/data1/cores/ntc")){
   scriptsPath <- "/n/data1/cores/ntc/scripts"
-} else if("adelman" %in% userGroups){
+} else if(startsWith(runningScript, "/n/data1/hms/bcmp/adelman")){
   scriptsPath <- "/n/data1/hms/bcmp/adelman/Scripts/ntc"
 } else{
-  stop("Permissions error: User not a member of 'ntc' or 'adelman' groups")
+  print("Warning: invoked script not on 'ntc' or 'adelman' paths")
+  scriptsPath <- "/n/data1/cores/ntc/scripts"
 }
 
 setwd("bedGraphs")
 system("mkdir -p forward reverse")
-system("mv *_F.bedGraph forward")
-system("mv *_R.bedGraph reverse")
+system("ln -rs *_3pr_forward.bedGraph forward")
+system("ln -rs *_3pr_reverse.bedGraph reverse")
 
+outPrefix <- sapply(strsplit(getwd(), "/"), tail, 2)[1]
 setwd("forward")
-outPrefix <- paste(unlist(strsplit(dir(pattern = "*.bedGraph")[1], "_"))[1:4], collapse = "_")
-system(paste(paste(scriptsPath, "bedgraphs2stdBedGraph/bedgraphs2stdBedGraph", sep = "/"), paste(outPrefix, "F", sep = "_")))
+system(paste(paste(scriptsPath, "AdelmanLab/NIH_scripts/bedgraphs2stdBedGraph/bedgraphs2stdBedGraph", sep = "/"), paste(outPrefix, "F", sep = "_")))
 setwd("../reverse")
-system(paste(paste(scriptsPath, "bedgraphs2stdBedGraph/bedgraphs2stdBedGraph", sep = "/"), paste(outPrefix, "R", sep = "_")))
+system(paste(paste(scriptsPath, "AdelmanLab/NIH_scripts/bedgraphs2stdBedGraph/bedgraphs2stdBedGraph", sep = "/"), paste(outPrefix, "R", sep = "_")))
 setwd("../../")
 tssPrefix <- sapply(strsplit(sapply(strsplit(tssPath, "/"), "[", length(strsplit(tssPath, "/")[[1]])), ".tss.txt"), "[", 1)
-system(paste(scriptsPath, "/make_heatmap -l s -s s --nohead -p bedGraphs/forward/", outPrefix, "_F.bedGraph -m bedGraphs/reverse/", outPrefix, "_R.bedGraph -- ", tssPath, " matrix/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt -2000 25 160", sep = ""))
+system("mkdir pro_tss")
+system(paste(scriptsPath, "/AdelmanLab/NIH_scripts/make_heatmap/make_heatmap -t 8 -l s -s s --nohead -p bedGraphs/forward/", outPrefix, "_F.bedGraph -m bedGraphs/reverse/", outPrefix, "_R.bedGraph -- ", tssPath, " pro_tss/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt -2000 25 160", sep = ""))
 
-tssMat <- read.table(paste("matrix/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt", sep = ""), header = T, sep = "\t", row.names = 1)
+tssMat <- read.table(paste("pro_tss/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt", sep = ""), header = T, sep = "\t", row.names = 1)
 tssReads <- rowSums(tssMat[, which(colnames(tssMat) == "X0.24"):which(colnames(tssMat) == "X125.149")])
 tssInactive <- names(tssReads)[tssReads <= readThreshold]
-system("mkdir pro_tss")
 write.table(tssList[tssInactive, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_inactive.tss.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 tssActive <- names(tssReads)[tssReads > readThreshold]
 
@@ -107,7 +111,6 @@ for (i in unlist(domTss)){
 
 write.table(tssList[rownames(tssList) %in% unlist(uniqueTss), ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_dominant.tss.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 
-#safPos <- vector("list")
 safPos <- data.frame(chr = character(), startTss = integer(), endTss = integer(), startWhole = integer(), endWhole = integer(), startBody = integer(), endBody = integer(), stringsAsFactors = F)
 for (i in names(uniqueTss)){
   loc <- unlist(strsplit(i, "[.]"))
@@ -119,12 +122,6 @@ for (i in names(uniqueTss)){
     safPos[i, "endWhole"] <- (as.integer(loc[2]) + tssList[uniqueTss[[i]], "V10"]) - 1
     safPos[i, "startBody"] <- as.integer(loc[2]) + 250
     safPos[i, "endBody"] <- as.integer(loc[2]) + 2250
-    # safPos[[i]][["startTss"]] <- as.integer(loc[2])
-    # safPos[[i]][["endTss"]] <- as.integer(loc[2]) + 150
-    # safPos[[i]][["startWhole"]] <- as.integer(loc[2])
-    # safPos[[i]][["endWhole"]] <- (as.integer(loc[2]) + tssList[uniqueTss[[i]], "V10"]) - 1
-    # safPos[[i]][["startBody"]] <- as.integer(loc[2]) + 250
-    # safPos[[i]][["endBody"]] <- as.integer(loc[2]) + 2250
   }
   else if(loc[3] == "-"){
     safPos[i, "startTss"] <- as.integer(loc[2]) - 150
@@ -133,12 +130,6 @@ for (i in names(uniqueTss)){
     safPos[i, "endWhole"] <- as.integer(loc[2])
     safPos[i, "startBody"] <- as.integer(loc[2]) - 2250
     safPos[i, "endBody"] <- as.integer(loc[2]) - 250
-    # safPos[[i]][["startTss"]] <- as.integer(loc[2]) - 150
-    # safPos[[i]][["endTss"]] <- as.integer(loc[2])
-    # safPos[[i]][["startWhole"]] <- (as.integer(loc[2]) - tssList[uniqueTss[[i]], "V10"]) + 1
-    # safPos[[i]][["endWhole"]] <- as.integer(loc[2])
-    # safPos[[i]][["startBody"]] <- as.integer(loc[2]) - 2250
-    # safPos[[i]][["endBody"]] <- as.integer(loc[2]) - 250
   }
   else{
     stop("Unexpected strand symbol")
@@ -149,16 +140,6 @@ posOrderTss <- rownames(safPos)[order(safPos$chr, safPos$startTss)]
 posOrderWhole <- rownames(safPos)[order(safPos$chr, safPos$startWhole)]
 posOrderBody <- rownames(safPos)[order(safPos$chr, safPos$startBody)]
 
-write.table(cbind(unlist(uniqueTss[posOrderTss]), safPos[posOrderTss, "chr"], safPos[posOrderTss, "startTss"], safPos[posOrderTss, "endTss"], sapply(strsplit(posOrderTss, "[.]"), "[", 3), tssList[unlist(uniqueTss[posOrderTss]), "V8"], sapply(dupTss[posOrderTss], paste, collapse = ";")), paste("pro_tss/", outPrefix, "_", tssPrefix, "_tss.saf.txt", sep = ""), quote = F, sep = "\t", col.names = c("GeneID", "Chr", "Start", "End", "Strand", "GeneName", "AllTx"), row.names = F)
-write.table(cbind(unlist(uniqueTss[posOrderWhole]), safPos[posOrderWhole, "chr"], safPos[posOrderWhole, "startWhole"], safPos[posOrderWhole, "endWhole"], sapply(strsplit(posOrderWhole, "[.]"), "[", 3), tssList[unlist(uniqueTss[posOrderWhole]), "V8"], sapply(dupTss[posOrderWhole], paste, collapse = ";")), paste("pro_tss/", outPrefix, "_", tssPrefix, "_whole_gene.saf.txt", sep = ""), quote = F, sep = "\t", col.names = c("GeneID", "Chr", "Start", "End", "Strand", "GeneName", "AllTx"), row.names = F)
-write.table(cbind(unlist(uniqueTss[posOrderBody]), safPos[posOrderBody, "chr"], safPos[posOrderBody, "startBody"], safPos[posOrderBody, "endBody"], sapply(strsplit(posOrderBody, "[.]"), "[", 3), tssList[unlist(uniqueTss[posOrderBody]), "V8"], sapply(dupTss[posOrderBody], paste, collapse = ";")), paste("pro_tss/", outPrefix, "_", tssPrefix, "_gene_body.saf.txt", sep = ""), quote = F, sep = "\t", col.names = c("GeneID", "Chr", "Start", "End", "Strand", "GeneName", "AllTx"), row.names = F)
-# for (i in rownames(tssList)){
-#   if(!(tssList[i, "V7"] %in% names(domTss))){
-#     domTss[[tssList[i, "V7"]]] <- tssList[i, "V6"]
-#   }
-#   else{
-#     if(domTss[[tssList[i, "V7"]]] != tssList[i, "V6"]){
-#       print(i)
-#     }
-#   }
-# }
+write.table(cbind(unlist(uniqueTss[posOrderTss]), safPos[posOrderTss, "chr"], safPos[posOrderTss, "startTss"], safPos[posOrderTss, "endTss"], sapply(strsplit(posOrderTss, "[.]"), "[", 3), tssList[unlist(uniqueTss[posOrderTss]), "V8"], sapply(dupTss[posOrderTss], paste, collapse = ";")), paste("pro_tss/", outPrefix, "_", tssPrefix, "_tss.saf", sep = ""), quote = F, sep = "\t", col.names = c("GeneID", "Chr", "Start", "End", "Strand", "GeneName", "AllTx"), row.names = F)
+write.table(cbind(unlist(uniqueTss[posOrderWhole]), safPos[posOrderWhole, "chr"], safPos[posOrderWhole, "startWhole"], safPos[posOrderWhole, "endWhole"], sapply(strsplit(posOrderWhole, "[.]"), "[", 3), tssList[unlist(uniqueTss[posOrderWhole]), "V8"], sapply(dupTss[posOrderWhole], paste, collapse = ";")), paste("pro_tss/", outPrefix, "_", tssPrefix, "_whole_gene.saf", sep = ""), quote = F, sep = "\t", col.names = c("GeneID", "Chr", "Start", "End", "Strand", "GeneName", "AllTx"), row.names = F)
+write.table(cbind(unlist(uniqueTss[posOrderBody]), safPos[posOrderBody, "chr"], safPos[posOrderBody, "startBody"], safPos[posOrderBody, "endBody"], sapply(strsplit(posOrderBody, "[.]"), "[", 3), tssList[unlist(uniqueTss[posOrderBody]), "V8"], sapply(dupTss[posOrderBody], paste, collapse = ";")), paste("pro_tss/", outPrefix, "_", tssPrefix, "_gene_body.saf", sep = ""), quote = F, sep = "\t", col.names = c("GeneID", "Chr", "Start", "End", "Strand", "GeneName", "AllTx"), row.names = F)
