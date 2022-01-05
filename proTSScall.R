@@ -38,7 +38,7 @@ system(paste(scriptsPath, "/AdelmanLab/NIH_scripts/make_heatmap/make_heatmap -t 
 tssMat <- read.table(paste("pro_tss/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt", sep = ""), header = T, sep = "\t", row.names = 1)
 tssReads <- rowSums(tssMat[, which(colnames(tssMat) == "X0.24"):which(colnames(tssMat) == "X125.149")])
 tssInactive <- names(tssReads)[tssReads <= readThreshold]
-write.table(tssList[tssInactive, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_inactive.tss.txt", sep = ""), quote = F, sep = "\t", col.names = F)
+write.table(tssList[tssInactive, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_inactive_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 tssActive <- names(tssReads)[tssReads > readThreshold]
 
 # identify 1 dominant TSS per active gene
@@ -72,7 +72,7 @@ for (i in tssActive){
 }
 
 tssNonDom <- tssActive[!(tssActive %in% unlist(domTss))]
-write.table(tssList[tssNonDom, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_non-dominant.tss.txt", sep = ""), quote = F, sep = "\t", col.names = F)
+write.table(tssList[tssNonDom, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_non-dominant_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 
 uniqueTss <- vector("list")
 dupTss <- vector("list")
@@ -109,7 +109,7 @@ for (i in unlist(domTss)){
   }
 }
 
-write.table(tssList[rownames(tssList) %in% unlist(uniqueTss), ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_dominant.tss.txt", sep = ""), quote = F, sep = "\t", col.names = F)
+write.table(tssList[rownames(tssList) %in% unlist(uniqueTss), ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_dominant_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 
 safPos <- data.frame(chr = character(), startTss = integer(), endTss = integer(), startWhole = integer(), endWhole = integer(), startBody = integer(), endBody = integer(), stringsAsFactors = F)
 for (i in names(uniqueTss)){
