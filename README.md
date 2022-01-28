@@ -30,7 +30,7 @@ Sample bash script:
 	#SBATCH -p short
 	#SBATCH -t 0-3
 	#SBATCH --mem=25G
-	#SBATCH -c 8
+	#SBATCH -c 6
 	
 	Rscript /path/to/proTSScall.R /path/to/tss_list 4
 
