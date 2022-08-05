@@ -16,9 +16,9 @@ Execute this script from the top level directory of NTC pipeline output (i.e. ou
 
 Outputs (in pro_tss/):
 
-	*_inactive_formakeheatmap.txt	inactive TSSs
+	*_inactive_formakeheatmap.txt		inactive TSSs
 	*_non-dominant_formakeheatmap.txt	active, non-dominant TSSs
-	*_dominant_formakeheatmap.txt	dominant TSSs
+	*_dominant_formakeheatmap.txt		dominant TSSs
 	*_+250.TES.min400_formakeheatmap.txt	dominant gene bodies (min transcript length filter of 400)
 
 ---------------------------------	
