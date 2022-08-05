@@ -32,4 +32,4 @@ Sample bash script:
 	
 	module load gcc/6.2.0 R/4.0.1
 	
-	Rscript /path/to/proTSScall.R /path/to/tss_list 4
+	Rscript /path/to/proTSScall.R /path/to/tss.tes_list 4
