@@ -1,27 +1,25 @@
 # proTSScall
 Call active, dominant transcription start sites from PRO-seq data
 
-Usage: Rscript proTSScall.R <tss_list> <read_threshold>
+	usage: Rscript proTSScall.R <tss.tes_list> <read_threshold>
 
-	tss_list	full path to TSS list in makeheatmap format
-	read_threshold	TSS-proximal read cutoff, *above* which TSSs are considered significantly active
+	tss.tes_list	full path to TSS/TES list (e.g. hg38.basic_formakeheatmap.txt)
+	read_threshold	TSS-proximal read cutoff, above which TSSs are considered active
 
-Execute this script from the top level directory of NTC pipeline output (i.e. the parent directory of bedGraphs/, matrix/, etc). Running it will accomplish the following:
+Execute this script from the top level directory of NTC pipeline output (i.e. outdir). Running it will accomplish the following:
 
-	1. Organize all *_{F,R}.bedGraph in bedGraphs/ into forward and reverse directories, in which all {F,R} samples are merged into a single {F,R} bedGraph
-	2. makeheatmap is run on the merged bedGraphs, from TSS +/- 2kb, binning at 25bp (output in matrix/) 
-	3. TSS-proximal read counts (TSS to +150) are calculated, and "inactive" TSSs are determined according to 'read_threshold'
-	4. From the remaining "active" TSSs, 1 dominant TSS is determined per gene (via TSS to +150 read counts), with ties won by the more upstream TSS (strand-aware)
-	5. Dominant TSSs are deduplicated (duplicates have same TSS start position) by keeping the longer transcript, with ties won by the lower ENSG number
+1. Organize all 1nt, 3' bedGraphs in bedGraphs/ into forward and reverse directories, in which all {forward,reverse} tracks are merged into a single {forward,reverse} bedGraph
+2. makeheatmap is run on the merged bedGraphs, from TSS +/- 2kb, binning at 25bp
+3. TSS-proximal read counts (TSS to +150) are calculated, and "inactive" TSSs are determined according to 'read_threshold'
+4. From the remaining "active" TSSs, 1 dominant TSS is determined per gene (via TSS to +150 read counts), with ties won by the more upstream (strand-aware) TSS
+5. Dominant TSSs are deduplicated (duplicates have same TSS start position) by keeping the longer transcript, with ties won by the lower ENSG number
 
 Outputs (in pro_tss/):
 
 	*_inactive_formakeheatmap.txt	inactive TSSs
-	*_non-dominant_formakeheatmap.txt	active, yet non-dominant, TSSs
-	*_dominant_formakeheatmap.txt	deduplicated, dominant TSSs
-	*_tss.saf		TSS-proximal intervals (TSS to +150) for deduplicated dominant TSSs, in SAF format
-	*_whole_gene.saf	whole gene intervals (TSS to transcript end) for deduplicated dominant TSSs, in SAF format
-	*_gene_body.saf		gene body intervals (TSS+250 to TSS+2250) for deduplicated dominant TSSs, in SAF format
+	*_non-dominant_formakeheatmap.txt	active, non-dominant TSSs
+	*_dominant_formakeheatmap.txt	dominant TSSs
+	*_+250.TES.min400_formakeheatmap.txt	dominant gene bodies (min transcript length filter of 400)
 
 ---------------------------------	
 Sample bash script:
@@ -29,8 +27,9 @@ Sample bash script:
 	#!/bin/bash
 	#SBATCH -p short
 	#SBATCH -t 0-3
-	#SBATCH --mem=25G
+	#SBATCH --mem=50G
 	#SBATCH -c 6
 	
+	module load gcc/6.2.0 R/4.0.1
+	
 	Rscript /path/to/proTSScall.R /path/to/tss_list 4
-
