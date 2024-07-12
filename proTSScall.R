@@ -132,8 +132,8 @@ system(sprintf('mv %s/* %s/', tmp_pro_tss_dir, final_pro_tss_dir))
 
 # attempt to remove the tmp directory. Note that this only works if the directory is empty.
 # If it's not empty, then we catch that and error
-x<- system(sprintf('rmdir %s', tmp_pro_tss_dir), intern=TRUE)
-if(attr(x, 'status') == 1){
+exit_code <- system(sprintf('rmdir %s', tmp_pro_tss_dir), intern=FALSE)
+if(exit_code != 0){
     message('Could not clean the tmp directory. Files were still present. Exit.')
     quit(status=1)
 }
