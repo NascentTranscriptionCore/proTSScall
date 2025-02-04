@@ -21,6 +21,7 @@ setwd("bedGraphs")
 system("mkdir -p forward reverse")
 system("ln -rs *_3pr_forward.bedGraph forward")
 system("ln -rs *_3pr_reverse.bedGraph reverse")
+final_pro_tss_dir <- 'pro_tss'
 
 outPrefix <- sapply(strsplit(getwd(), "/"), tail, 2)[1]
 setwd("forward")
@@ -29,17 +30,22 @@ setwd("../reverse")
 system(paste(paste(scriptsPath, "AdelmanLab/NIH_scripts/bedgraphs2stdBedGraph/bedgraphs2stdBedGraph", sep = "/"), paste(outPrefix, "R", sep = "_")))
 setwd("../../")
 tssPrefix <- sapply(strsplit(sapply(strsplit(tssPath, "/"), "[", length(strsplit(tssPath, "/")[[1]])), "_formakeheatmap.txt"), "[", 1)
-system("mkdir pro_tss")
-system(paste(scriptsPath, "/AdelmanLab/NIH_scripts/make_heatmap/make_heatmap -t 6 -l s -s s --nohead -p bedGraphs/forward/", outPrefix, "_F.bedGraph -m bedGraphs/reverse/", outPrefix, "_R.bedGraph -- ", tssPath, " pro_tss/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt -2000 25 160", sep = ""))
+system(sprintf("mkdir %s", final_pro_tss_dir))
 
-tssMat <- read.table(paste("pro_tss/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt", sep = ""), header = T, sep = "\t", row.names = 1)
+# a temporary directory which will prevent incomplete files from populating the final `pro_tss` directory:
+tmp_pro_tss_dir <- 'pro_tss_tmp'
+system(sprintf('mkdir %s', tmp_pro_tss_dir))
+
+system(paste(scriptsPath, "/AdelmanLab/NIH_scripts/make_heatmap/make_heatmap -t 6 -l s -s s --nohead -p bedGraphs/forward/", outPrefix, "_F.bedGraph -m bedGraphs/reverse/", outPrefix, "_R.bedGraph -- ", tssPath, " ", final_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt -2000 25 160", sep = ""))
+
+tssMat <- read.table(paste(final_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_25mer_+-2kb.txt", sep = ""), header = T, sep = "\t", row.names = 1)
 
 # get TSS.+150 counts
 tssReads <- rowSums(tssMat[, which(colnames(tssMat) == "X0.24"):which(colnames(tssMat) == "X125.149")])
 tssInactive <- names(tssReads)[tssReads <= readThreshold]
 
-# print inactive TSSs
-write.table(tssList[tssInactive, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_inactive_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
+# print inactive TSSs (into tmp dir)
+write.table(tssList[tssInactive, ], paste(tmp_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_inactive_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 tssActive <- names(tssReads)[tssReads > readThreshold]
 
 # identify 1 dominant TSS per active gene
@@ -74,8 +80,8 @@ for (i in tssActive){
 }
 
 tssNonDom <- tssActive[!(tssActive %in% unlist(domTss))]
-# print active, non-dominant TSSs
-write.table(tssList[tssNonDom, ], paste("pro_tss/", outPrefix, "_", tssPrefix, "_non-dominant_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
+# print active, non-dominant TSSs (into tmp dir)
+write.table(tssList[tssNonDom, ], paste(tmp_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_non-dominant_formakeheatmap.txt", sep = ""), quote = F, sep = "\t", col.names = F)
 
 uniqueTss <- vector("list")
 dupTss <- vector("list")
@@ -113,10 +119,24 @@ for (i in unlist(domTss)){
   }
 }
 
-# print dominant TSSs
-write.table(tssList[rownames(tssList) %in% unlist(uniqueTss), ], paste0("pro_tss/", outPrefix, "_", tssPrefix, "_dominant_formakeheatmap.txt"), quote = F, sep = "\t", col.names = F)
+# print dominant TSSs to tmp
+write.table(tssList[rownames(tssList) %in% unlist(uniqueTss), ], paste0(tmp_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_dominant_formakeheatmap.txt"), quote = F, sep = "\t", col.names = F)
 
-# print dominant gene bodies
+# print dominant gene bodies (reading the file in the tmp dir and directing stdout to that same tmp dir)
 system(paste("awk -F'\t' -v OFS='\t' '{if($10>=400) {if($6==\"+\") print $1, $2, $3, $4+250, $5, $6, $7, $8, $9, $10; else print $1, $2, $3, $4, $5-250, $6, $7, $8, $9, $10}}'", 
-             paste0("pro_tss/", outPrefix, "_", tssPrefix, "_dominant_formakeheatmap.txt"), ">", 
-             paste0("pro_tss/", outPrefix, "_", tssPrefix, "_+250.TES.min400_formakeheatmap.txt")))
+             paste0(tmp_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_dominant_formakeheatmap.txt"), ">", 
+             paste0(tmp_pro_tss_dir, "/", outPrefix, "_", tssPrefix, "_+250.TES.min400_formakeheatmap.txt")))
+
+# If we have reached here, we can move the files to their final destination:
+system(sprintf('mv %s/* %s/', tmp_pro_tss_dir, final_pro_tss_dir))
+
+# attempt to remove the tmp directory. Note that this only works if the directory is empty.
+# If it's not empty, then we catch that and error
+exit_code <- system(sprintf('rmdir %s', tmp_pro_tss_dir), intern=FALSE)
+if(exit_code != 0){
+    message('Could not clean the tmp directory. Files were still present. Exit.')
+    quit(status=1)
+}
+
+# Create a job completion file with a timestamp.
+cat(format(Sys.time(), "%h %d, %Y:%H:%M:%S"), file=paste0(final_pro_tss_dir, "/complete.txt"))
